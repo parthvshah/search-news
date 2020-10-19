@@ -1,19 +1,42 @@
 from rank_bm25 import BM25Okapi
+import spacy
+from tqdm import tqdm
+import pandas as pd
+import glob
+import time
 
-corpus = [
-    "Hello there good man!",
-    "It is quite windy in London",
-    "How is the weather today?"
-]
+nlp = spacy.load("en_core_web_sm")
 
-tokenized_corpus = [doc.split(" ") for doc in corpus]
+path = r'./archive/TelevisionNews'
+all_files = glob.glob(path + "/*.csv")
 
-bm25 = BM25Okapi(tokenized_corpus)
+li = []
 
-query = "windy London"
-tokenized_query = query.split(" ")
+for filename in all_files:
+    df = pd.read_csv(filename, index_col=None, header=0)
+    li.append(df)
 
-doc_scores = bm25.get_scores(tokenized_query)
-docs = bm25.get_top_n(tokenized_query, corpus, n=1)
+text_list_df = pd.concat(li, axis=0, ignore_index=True)
+text_list = text_list_df.Snippet.str.lower().values
 
-print(docs)
+tok_text=[]
+
+for doc in tqdm(nlp.pipe(text_list, disable=["tagger", "parser", "ner"])):
+   tok = [t.text for t in doc if t.is_alpha]
+   tok_text.append(tok)
+
+bm25 = BM25Okapi(tok_text)
+
+query = "Flood Defence"
+print("Query:", query)
+
+tokenized_query = query.lower().split(" ")
+t0 = time.time()
+results = bm25.get_top_n(tokenized_query, text_list_df.Snippet.values, n=3)
+t1 = time.time()
+
+print(f'Searched {len(text_list_df.Snippet.values)} records in {round(t1-t0,3)} seconds!\n')
+
+for i in results:
+   print(i)
+   print("---")
