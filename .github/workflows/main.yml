@@ -24,4 +24,4 @@ jobs:
         python -m pip install black
     - name: Black lint
       run: |
-        python -m black ". --check"
+        python -m black . --check
