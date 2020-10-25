@@ -1,9 +1,10 @@
-from rank_bm25 import BM25Okapi
-import spacy
-from tqdm import tqdm
-import pandas as pd
 import glob
+import pandas as pd
+import spacy
 import time
+
+from rank_bm25 import BM25Okapi
+from tqdm import tqdm
 
 nlp = spacy.load("en_core_web_sm")
 

@@ -1,11 +1,14 @@
-import pandas as pd
 import glob
+import pandas as pd
 import time
 
 from pickle_utils import load, dump
 
-# returns a string after cleaning punctuation
+
 def punct_clean(string):
+    """
+    Remove punctuation from `string`
+    """
     punc = """!()-[]{};:'"\, <>./?@#$%^&*_~"""
 
     for char in string:
@@ -15,8 +18,10 @@ def punct_clean(string):
     return string
 
 
-# returns all document 'Snippets' as a list
 def create_text_list():
+    """
+    Read all documents snippets into a single list.
+    """
     path = r"./archive/TelevisionNews"
     all_files = glob.glob(path + "/*.csv")
 
@@ -31,8 +36,10 @@ def create_text_list():
     return text_list
 
 
-# create inverted index
 def create_inverted_index(text_list):
+    """
+    Convert `text_list` into inverted index.
+    """
     inverted = dict()
 
     for i, text in enumerate(text_list):
@@ -50,15 +57,21 @@ def create_inverted_index(text_list):
     return inverted
 
 
-# splits boolean query
 def process_query(query):
+    """
+    Split boolean query, currently supports:
+        OR - |
+    """
     query = query.split("|")
     print(query)
     return query
 
 
-# given a query, returns respective documents
-def search(index, original, query):
+def search(index, text_list, query):
+    """
+    Searches `index` for `query`.
+    `text_list` is list of snippets.
+    """
     query = process_query(query)
     targets = []
     for term in query:
@@ -67,7 +80,7 @@ def search(index, original, query):
     results = []
 
     for target in targets:
-        results.append(original[target])
+        results.append(text_list[target])
 
     return results
 

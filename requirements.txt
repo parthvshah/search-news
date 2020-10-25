@@ -1,3 +1,2 @@
 rank_bm25
 spacy
-pickle

@@ -4,9 +4,11 @@ A search engine for the Environmental News NLP Dataset. Created for the AIR Cour
 
 ## Setup
 
+Download dataset from [Kaggle](https://www.kaggle.com/amritvirsinghx/environmental-news-nlp-dataset) as `./archive/TelevisionNews`.
+
 Run:
 
-```./setup.sh```
+`./setup.sh`
 
 ## Run a query
 
