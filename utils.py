@@ -1,4 +1,11 @@
+import pandas as pd
+import spacy as sp
 import pickle
+
+
+def retrieveSnippetsFromFile(filePath):
+    df = pd.read_csv(filePath, index_col=None, header=0)
+    return df.Snippet.str.lower().values
 
 
 def dump(obj, filename):

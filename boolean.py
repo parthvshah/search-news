@@ -1,8 +1,7 @@
 import glob
 import pandas as pd
 import time
-
-from pickle_utils import load, dump
+from utils import load, dump
 
 
 def punct_clean(string):
@@ -67,15 +66,16 @@ def process_query(query):
     return query
 
 
-def search(index, text_list, query):
+def searchOR(index, text_list, query):
     """
     Searches `index` for `query`.
     `text_list` is list of snippets.
     """
     query = process_query(query)
-    targets = []
+    targets = set()
     for term in query:
-        targets.extend(index[term])
+        for doc in index[term]:
+            targets.add(doc)
 
     results = []
 
@@ -88,20 +88,22 @@ def search(index, text_list, query):
 if __name__ == "__main__":
     text_list = create_text_list()
 
-    # inverted = create_inverted_index(text_list)
-    # dump(inverted, './obj/inverted.pk')
-
-    inverted = load("./obj/inverted.pk")
+    try:
+        inverted = load("./obj/booleanInvIdx.pk")
+    except (OSError, IOError):
+        inverted = create_inverted_index(text_list)
+        dump(inverted, "./obj/booleanInvIdx.pk")
 
     """
     Currently supported:
         | - OR
     """
 
-    query = "cloud|trump"
+    # query = "cloud|trump"
+    query = input("Enter boolean query: ")
 
     start_t = time.time()
-    documents = search(inverted, text_list, query)
+    documents = searchOR(inverted, text_list, query)
     end_t = time.time()
 
     search_time = round(end_t - start_t, 3)
