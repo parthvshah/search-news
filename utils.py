@@ -1,5 +1,4 @@
 import pandas as pd
-import spacy as sp
 import pickle
 
 

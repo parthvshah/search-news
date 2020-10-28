@@ -1,5 +1,6 @@
-import time
 import pickle as pu
+import time
+
 from models import invertedIndexDict, invertedIndexTfIdf
 
 if __name__ == "__main__":

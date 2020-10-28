@@ -1,12 +1,12 @@
-from collections import defaultdict, Counter
-from itertools import islice
 import glob
-from math import log
 import pandas as pd
 import spacy as sp
-import time
+
+from collections import Counter, defaultdict
+from itertools import islice
+from math import log
 from tqdm import tqdm
-from utils import retrieveSnippetsFromFile, dump, load
+from utils import dump, load, retrieveSnippetsFromFile
 
 nlp = sp.load("en_core_web_sm")
 
