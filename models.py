@@ -11,7 +11,7 @@ from utils import dump, load, retrieveSnippetsFromFile
 nlp = sp.load("en_core_web_sm")
 
 
-class invertedIndexDict:
+class InvertedIndexDict:
     """
     Dictionary implementation of inverted index.
     """
@@ -94,7 +94,7 @@ class invertedIndexDict:
         return rankedDict
 
 
-class invertedIndexTfIdf:
+class InvertedIndexTfIdf:
     """
     Dictionary implementation of inverted index with TFIDF similarity measure.
     """

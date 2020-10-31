@@ -1,11 +1,11 @@
 import pickle as pu
 import time
 
-from models import invertedIndexDict, invertedIndexTfIdf
+from models import InvertedIndexDict, InvertedIndexTfIdf
 
 if __name__ == "__main__":
     # idxObj = invertedIndexDict(r"./archive/TelevisionNews")
-    idxObj = invertedIndexTfIdf(r"./archive/TelevisionNews")
+    idxObj = InvertedIndexTfIdf(r"./archive/TelevisionNews")
 
     query = input("Enter search query: ")
     startTime = time.time()
