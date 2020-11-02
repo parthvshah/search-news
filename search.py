@@ -14,9 +14,7 @@ if __name__ == "__main__":
 
     searchTime = round(endTime - startTime, 3)
     print(
-        "Searched for - "
-        + query
-        + " - across "
+        "Searched across "
         + str(len(idxObj.documentIndex))
         + " documents in "
         + str(searchTime)

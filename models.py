@@ -6,7 +6,7 @@ from collections import Counter, defaultdict
 from itertools import islice
 from math import log
 from tqdm import tqdm
-from utils import dump, load, retrieveSnippetsFromFile
+from utils import dump, load, retrieveSnippetsFromFile, spellchecker
 
 nlp = sp.load("en_core_web_sm")
 
@@ -148,6 +148,12 @@ class InvertedIndexTfIdf:
         Currently scores documents based on tfidf(t,q)*tfidf(t,d) similarity
         """
         # TODO: Use further heuristics to reduce query search time such as Query Parser, Impact Ordered postings, Relevance and Authority
+
+        correctedQuery = spellchecker(query)
+        if correctedQuery != query:
+            print("Did you mean:", correctedQuery)
+            query = correctedQuery
+
         scoreIndex = defaultdict(int)
         queryTerms = nlp(query)
         queryTermCounts = Counter([token.lemma_ for token in queryTerms])

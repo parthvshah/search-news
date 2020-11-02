@@ -1,5 +1,17 @@
 import pandas as pd
 import pickle
+from spellchecker import SpellChecker
+
+spell = SpellChecker()
+
+
+def spellchecker(query):
+    words = query.split()
+    correction = []
+    for word in words:
+        correction.append(spell.correction(word))
+
+    return " ".join(correction)
 
 
 def retrieveSnippetsFromFile(filePath):
