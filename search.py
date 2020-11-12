@@ -4,7 +4,7 @@ import time
 from models import InvertedIndexDict, InvertedIndexTfIdf
 
 if __name__ == "__main__":
-    # idxObj = invertedIndexDict(r"./archive/TelevisionNews")
+    # idxObj = InvertedIndexDict(r"./archive/TelevisionNews")
     idxObj = InvertedIndexTfIdf(r"./archive/TelevisionNews")
 
     query = input("Enter search query: ")

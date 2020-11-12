@@ -6,7 +6,7 @@ from collections import Counter, defaultdict
 from itertools import islice
 from math import log
 from tqdm import tqdm
-from utils import dump, load, retrieveSnippetsFromFile, spellchecker
+from utils import dump, load, retrieveSnippetsFromFile, preprocess, spellchecker
 
 nlp = sp.load("en_core_web_sm")
 

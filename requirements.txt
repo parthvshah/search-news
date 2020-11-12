@@ -3,3 +3,4 @@ rank_bm25==0.2.1
 spacy==2.3.2
 pyspellchecker==0.5.5
 tqdm==4.51.0
+num2words==0.5.10
