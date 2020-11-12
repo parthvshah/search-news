@@ -195,6 +195,7 @@ class VectorSpaceModel:
         """
         self.dataDir = dataDirectory
         self.documentTokens = {}
+        self.docCount = 0
         self.totalVocab = []
         self.docVectors = []
         self._constructIndex()
@@ -218,7 +219,7 @@ class VectorSpaceModel:
 
         except (OSError, IOError):
             documents = glob.glob(self.dataDir + "/*.csv")
-            docCount = 0
+            self.docCount = 0
 
             # load, pre-process and count
             for documentID in tqdm(range(len(documents))):
@@ -227,14 +228,14 @@ class VectorSpaceModel:
 
                 for snippet in snippets:
                     # TODO: Add preprocessing, try stemming, save original
-                    snippet = utils.preprocess(snippet)
-                    docCount += 1
-                    self.documentTokens[docCount] = snippet
+                    snippet = preprocess(snippet)
+                    self.documentTokens[self.docCount] = snippet
+                    self.docCount += 1
 
             # create df
             DF = {}
             vocabSize = 0
-            for i in range(docCount):
+            for i in range(self.docCount):
                 tokens = self.documentTokens[i]
                 for token in tokens:
                     try:
@@ -252,7 +253,7 @@ class VectorSpaceModel:
             tfidf = {}
             docNum = 0
 
-            for i in range(docCount):
+            for i in range(self.docCount):
                 tokens = self.documentTokens[i]
                 counter = Counter(tokens)
                 wordCount = len(tokens)
@@ -260,14 +261,14 @@ class VectorSpaceModel:
                 for token in np.unique(tokens):
                     tf = counter[token] / wordCount
                     df = self._documentFreq(token)
-                    idf = np.log((docCount + 1) / (df + 1))
+                    idf = np.log((self.docCount + 1) / (df + 1))
 
                     tfidf[docNum, token] = tf * idf
 
                 docNum += 1
 
             # vectorize
-            self.docVectors = np.zeros((docCount, vocabSize))
+            self.docVectors = np.zeros((self.docCount, vocabSize))
             for i in tfidf:
                 try:
                     index = self.totalVocab.index(i[1])
@@ -283,12 +284,10 @@ class VectorSpaceModel:
         counter = Counter(tokens)
         wordCount = len(tokens)
 
-        queryWeights = {}
-
         for token in np.unique(tokens):
             tf = counter[token] / wordCount
             df = self._documentFreq(token)
-            idf = np.log((N + 1) / (df + 1))
+            idf = np.log((self.docCount + 1) / (df + 1))
 
             try:
                 index = self.totalVocab.index(token)
@@ -313,7 +312,7 @@ class VectorSpaceModel:
             query = correctedQuery
 
         print("Query:", query)
-        tokens = utils.preprocess(query)
+        tokens = preprocess(query)
 
         docCosines = []
         queryVector = self._vectorize(tokens)
