@@ -1,7 +1,7 @@
 import pickle as pu
 import time
 
-from models import InvertedIndexDict, InvertedIndexTfIdf
+from models import InvertedIndexDict, InvertedIndexTfIdf, VectorSpaceModel
 
 if __name__ == "__main__":
     # idxObj = InvertedIndexDict(r"./archive/TelevisionNews")
@@ -23,7 +23,7 @@ if __name__ == "__main__":
 
     with open("./obj/docIdx.pk", "rb") as f:
         documentIndex = pu.load(f)
-    for doc in res:
-        print("Doc", doc, ":", res[doc], "Score")
-        print(documentIndex[doc])
+    for docId in res:
+        print("DocID", docId)
+        print(documentIndex[docId])
         print("----------------------")
