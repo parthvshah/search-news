@@ -2,6 +2,7 @@ import glob
 import numpy as np
 import pandas as pd
 import spacy as sp
+import sys
 
 from collections import Counter, defaultdict
 from itertools import islice
@@ -110,6 +111,7 @@ class InvertedIndexTfIdf:
         self.index = {}
         # documentIndex contains the mapping of docIDs to docNames.
         self.documentIndex = {}
+        self.totalVocab = []
         self._constructIndex()
 
     def _constructIndex(self):
@@ -118,6 +120,7 @@ class InvertedIndexTfIdf:
         """
         try:
             self.index = load("./obj/invIdxTfIdf.pk")
+            self.totalVocab = load("./obj/vocab.pk")
             self.documentIndex = load("./obj/docIdx.pk")
 
         except (OSError, IOError):
@@ -130,8 +133,9 @@ class InvertedIndexTfIdf:
                 for snippet in snippets:
                     docCount += 1
                     self.documentIndex[docCount] = snippet
-                    spSnip = nlp(snippet)
-                    tokenCounts = Counter([token.lemma_ for token in spSnip])
+                    processed = preprocess(snippet).split()
+                    self.totalVocab.extend(processed)
+                    tokenCounts = Counter(processed)
                     for token in tokenCounts:
                         tf = round(1 + log(tokenCounts[token], 10), 3)
                         if token in self.index:
@@ -141,9 +145,49 @@ class InvertedIndexTfIdf:
 
             print("Indexed", len(self.index), "tokens")
             dump(self.index, "./obj/invIdxTfIdf.pk")
+            dump(self.totalVocab, "./obj/vocab.pk")
             dump(self.documentIndex, "./obj/docIdx.pk")
 
-    def search(self, query, top=50):
+    def _cosineSim(self, a, b):
+        return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+
+    def _vectorize(self, snippet):
+        tokens = preprocess(snippet)
+        tokens = tokens.split()
+        query = np.zeros(len(self.totalVocab))
+        counter = Counter(tokens)
+        wordCount = len(tokens)
+
+        for token in np.unique(tokens):
+            tf = counter[token] / wordCount
+            if token not in self.index:
+                print("Invalid Query")
+                sys.exit()
+
+            df = len(self.index[token])
+            idf = np.log((len(self.documentIndex) + 1) / (df + 1))
+            index = self.totalVocab.index(token)
+            query[index] = tf * idf
+
+        return query
+
+    def _rankVectorSpace(self, documentDict, query):
+        queryVector = self._vectorize(query)
+        docScores = {}
+        for docID in documentDict:
+            docVector = self._vectorize(self.documentIndex[docID])
+            docScores[docID] = self._cosineSim(docVector, queryVector)
+
+        # sort
+        result = {
+            k: v
+            for k, v in sorted(
+                docScores.items(), key=lambda item: item[1], reverse=True
+            )
+        }
+        return result
+
+    def search(self, query, top=10):
         """
         Search for terms in `query`
         Currently scores documents based on tf(t,q)*tfidf(t,d) similarity
@@ -156,8 +200,8 @@ class InvertedIndexTfIdf:
             query = correctedQuery
 
         scoreIndex = defaultdict(int)
-        queryTerms = nlp(query)
-        queryTermCounts = Counter([token.lemma_ for token in queryTerms])
+        processed = preprocess(query).split()
+        queryTermCounts = Counter(processed)
         noOfDocuments = len(self.documentIndex)
         for term in queryTermCounts:
             if term in self.index:
@@ -173,15 +217,19 @@ class InvertedIndexTfIdf:
                         queryTermCounts[term] * (idf * postingList[docIndex]), 3
                     )
 
-        rankedDict = { 
+        rankedDict = {
             k: v
             for k, v in sorted(
                 scoreIndex.items(), key=lambda item: item[1], reverse=True
             )
         }
+        # dict
+        vectorSpaceRanked = self._rankVectorSpace(
+            dict(islice(rankedDict.items(), 2 * top)), query
+        )
 
         # returns a dict with k: v as docID: score
-        return dict(islice(rankedDict.items(), top))
+        return dict(islice(vectorSpaceRanked.items(), top))
 
 
 class DocumentBlueprint:
