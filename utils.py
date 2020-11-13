@@ -1,7 +1,9 @@
 import pandas as pd
 import pickle
+import numpy as np
 import spacy as sp
 
+from nltk.stem import PorterStemmer
 from num2words import num2words
 from spellchecker import SpellChecker
 
@@ -22,18 +24,27 @@ def preprocess(snippet):
     """
     Perform following cleaning on `snippet`:
         - Lower case
+        - punctuation
         - Lemmatization
         - Stop word removal
         - num2word
     Returns modified snippet
     """
     stopwords = nlp.Defaults.stop_words
+    stemmer = PorterStemmer()
     # lowercase
     snippet = snippet.lower()
+    # punct
+    symbols = '!"#$%&()*+-./:;<=>?@[\]^_`{|}~\n'
+    for i in range(len(symbols)):
+        snippet = np.char.replace(snippet, symbols[i], " ")
+        snippet = np.char.replace(snippet, "  ", " ")
+    snippet = np.char.replace(snippet, ",", "")
 
-    # remove stopwords; lemmatise
-    snippet = nlp(snippet)
-    cleanTokens = [word.lemma_ for word in snippet if word not in stopwords]
+    # remove stopwords; stem
+    # TODO: try with a lemmetizer
+    snippet = str(snippet).split()
+    cleanTokens = [stemmer.stem(word) for word in snippet if word not in stopwords]
 
     for index in range(len(cleanTokens)):
         try:

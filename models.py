@@ -194,6 +194,7 @@ class VectorSpaceModel:
         `dataDirectory` is path to directory of corpus.
         """
         self.dataDir = dataDirectory
+        self.ogDocuments = {}
         self.documentTokens = {}
         self.docCount = 0
         self.totalVocab = []
@@ -214,8 +215,10 @@ class VectorSpaceModel:
         Construct index from documents.
         """
         try:
-            self.index = load("./obj/vectorSpace.pk")
-            self.documentTokens = load("./obj/docIdx.pk")
+            self.docVectors = load("./obj/vectorSpace.pk")
+            self.totalVocab = load("./obj/vocab.pk")
+            self.docCount = load("./obj/docCount.pk")
+            self.ogDocuments = load("./obj/ogDocs.pk")
 
         except (OSError, IOError):
             documents = glob.glob(self.dataDir + "/*.csv")
@@ -228,13 +231,15 @@ class VectorSpaceModel:
 
                 for snippet in snippets:
                     # TODO: Add preprocessing, try stemming, save original
-                    snippet = preprocess(snippet)
-                    self.documentTokens[self.docCount] = snippet
+                    self.ogDocuments[self.docCount] = snippet
+                    self.documentTokens[self.docCount] = preprocess(snippet).split()
                     self.docCount += 1
 
-            # create df
+            # store df
             DF = {}
             vocabSize = 0
+
+            # TODO: all the following funcs should happen in batches
             for i in range(self.docCount):
                 tokens = self.documentTokens[i]
                 for token in tokens:
@@ -242,10 +247,8 @@ class VectorSpaceModel:
                         DF[token].add(i)
                     except:
                         DF[token] = {i}
-                        vocabSize += 1
 
-            for i in DF:
-                DF[i] = len(DF[i])
+            vocabSize = len(DF)
 
             self.totalVocab = [x for x in DF]
 
@@ -276,19 +279,21 @@ class VectorSpaceModel:
                 except:
                     pass
 
+            # TODO: dump multiple docVectors into diff files
             dump(self.docVectors, "./obj/vectorSpace.pk")
-            dump(self.documentTokens, "./obj/docIdx.pk")
+            dump(self.totalVocab, "./obj/vocab.pk")
+            dump(self.docCount, "./obj/docCount.pk")
+            dump(self.ogDocuments, "./obj/ogDocs.pk")
 
     def _vectorize(self, tokens):
+        tokens = tokens.split()
         query = np.zeros((len(self.totalVocab)))
         counter = Counter(tokens)
         wordCount = len(tokens)
-
         for token in np.unique(tokens):
             tf = counter[token] / wordCount
             df = self._documentFreq(token)
             idf = np.log((self.docCount + 1) / (df + 1))
-
             try:
                 index = self.totalVocab.index(token)
                 query[index] = tf * idf
@@ -304,8 +309,8 @@ class VectorSpaceModel:
         """
         Search for terms in `query`
         """
-        # TODO: Use further heuristics to reduce query search time such as Query Parser, Impact Ordered postings, Relevance and Authority
 
+        # TODO: Use further heuristics to reduce query search time such as Query Parser, Impact Ordered postings, Relevance and Authority
         correctedQuery = spellchecker(query)
         if correctedQuery != query:
             print("Did you mean:", correctedQuery)
@@ -313,14 +318,17 @@ class VectorSpaceModel:
 
         print("Query:", query)
         tokens = preprocess(query)
-
         docCosines = []
         queryVector = self._vectorize(tokens)
 
+        # TODO: search in multiple docVector files
         for document in self.docVectors:
             docCosines.append(self._cosineSim(queryVector, document))
 
-        result = np.array(docCosines).argsort()[-top:][::-1]
+        resultIDs = np.array(docCosines).argsort()[-top:][::-1]
+        resultCosines = []
+        for Id in resultIDs:
+            resultCosines.append(docCosines[Id])
 
-        # returns array of docIDs
-        return result
+        # returns array of (docIDs, cosineScore)
+        return zip(resultIDs, resultCosines)
