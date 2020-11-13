@@ -51,8 +51,8 @@ class InvertedIndexDict:
                 document = documents[documentID]
                 snippets = retrieveSnippetsFromFile(document)
                 for snippet in snippets:
-                    docCount += 1
                     self.documentIndex[docCount] = snippet
+                    docCount += 1
                     spSnip = nlp(snippet)
                     for token in spSnip:
                         tokLemma = token.lemma_
@@ -110,9 +110,9 @@ class InvertedIndexTfIdf:
         self.index = {}
         # documentIndex contains the mapping of docIDs to docNames.
         self.documentIndex = {}
-        self.constructIndex()
+        self._constructIndex()
 
-    def constructIndex(self):
+    def _constructIndex(self):
         """
         Construct index from documents.
         """
@@ -143,10 +143,10 @@ class InvertedIndexTfIdf:
             dump(self.index, "./obj/invIdxTfIdf.pk")
             dump(self.documentIndex, "./obj/docIdx.pk")
 
-    def search(self, query, top=10):
+    def search(self, query, top=50):
         """
         Search for terms in `query`
-        Currently scores documents based on tfidf(t,q)*tfidf(t,d) similarity
+        Currently scores documents based on tf(t,q)*tfidf(t,d) similarity
         """
         # TODO: Use further heuristics to reduce query search time such as Query Parser, Impact Ordered postings, Relevance and Authority
 
@@ -173,13 +173,14 @@ class InvertedIndexTfIdf:
                         queryTermCounts[term] * (idf * postingList[docIndex]), 3
                     )
 
-        rankedDict = {
+        rankedDict = { 
             k: v
             for k, v in sorted(
                 scoreIndex.items(), key=lambda item: item[1], reverse=True
             )
         }
 
+        # returns a dict with k: v as docID: score
         return dict(islice(rankedDict.items(), top))
 
 
