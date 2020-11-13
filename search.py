@@ -1,7 +1,7 @@
-import pickle as pu
 import time
 
 from models import VectorSpaceModel
+from utils import load
 
 if __name__ == "__main__":
     idxObj = VectorSpaceModel(r"./archive/test")
@@ -11,8 +11,7 @@ if __name__ == "__main__":
     results = idxObj.search(query)
     endTime = time.time()
 
-    with open("./obj/ogDocs.pk", "rb") as f:
-        documentIndex = pu.load(f)
+    documentIndex = load("./obj/docDict.pk")
 
     searchTime = round(endTime - startTime, 3)
     print(
@@ -26,5 +25,5 @@ if __name__ == "__main__":
     for result in results:
         print("DocID:", result[0])
         print("Score:", result[1])
-        print(documentIndex[result[0]])
+        print(documentIndex[result[0]].snippet)
         print("----------------------")

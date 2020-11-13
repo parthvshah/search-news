@@ -1,8 +1,7 @@
 import glob
+import numpy as np
 import pandas as pd
 import spacy as sp
-import numpy as np
-from collections import Counter
 
 from collections import Counter, defaultdict
 from itertools import islice
@@ -184,9 +183,21 @@ class InvertedIndexTfIdf:
         return dict(islice(rankedDict.items(), top))
 
 
+class DocumentBlueprint:
+    """
+    A simple way to store documents uniformly
+    """
+
+    def __init__(self, docID):
+        self.docID = docID
+        self.snippet = ""
+        self.tokens = []
+        self.docVector = []
+
+
 class VectorSpaceModel:
     """
-    Dictionary implementation of inverted index with TFIDF similarity measure.
+    Vector Space Model to search with TFIDF similarity measure.
     """
 
     def __init__(self, dataDirectory):
@@ -194,70 +205,68 @@ class VectorSpaceModel:
         `dataDirectory` is path to directory of corpus.
         """
         self.dataDir = dataDirectory
-        self.ogDocuments = {}
-        self.documentTokens = {}
+        # A dictionary of all documents as DocumentBlueprint objects
+        self.documentDictionary = {}
+
+        # document count; each snippet is counted as a new document
         self.docCount = 0
-        self.totalVocab = []
-        self.docVectors = []
+        self._totalVocab = []
+        self._vocabSize = 0
+        self._docFreq = {}
         self._constructIndex()
 
     def _documentFreq(self, word):
-        count = 0
-        try:
-            count = self.DF[word]
-        except:
-            pass
-
-        return count
+        """
+        Return frequency of documents that contain `word`
+        """
+        if word not in self._docFreq:
+            return 0
+        return len(self._docFreq[word])
 
     def _constructIndex(self):
         """
         Construct index from documents.
         """
         try:
-            self.docVectors = load("./obj/vectorSpace.pk")
-            self.totalVocab = load("./obj/vocab.pk")
-            self.docCount = load("./obj/docCount.pk")
-            self.ogDocuments = load("./obj/ogDocs.pk")
+            self.documentDictionary = load("./obj/docDict.pk")
+            self.docCount = len(self.documentDictionary)
+            self._totalVocab = load("./obj/vocab.pk")
+            self._vocabSize = len(self._totalVocab)
+            self._docFreq = load("./obj/docFreq.pk")
 
         except (OSError, IOError):
             documents = glob.glob(self.dataDir + "/*.csv")
-            self.docCount = 0
 
             # load, pre-process and count
-            for documentID in tqdm(range(len(documents))):
-                document = documents[documentID]
+            for docID in tqdm(range(len(documents))):
+                document = documents[docID]
                 snippets = retrieveSnippetsFromFile(document)
 
                 for snippet in snippets:
-                    # TODO: Add preprocessing, try stemming, save original
-                    self.ogDocuments[self.docCount] = snippet
-                    self.documentTokens[self.docCount] = preprocess(snippet).split()
+                    # TODO: Lemmatization?
+                    newDoc = DocumentBlueprint(docID)
+                    newDoc.snippet = snippet
+                    newDoc.tokens = preprocess(snippet).split()
+                    self.documentDictionary[self.docCount] = newDoc
                     self.docCount += 1
-
-            # store df
-            DF = {}
-            vocabSize = 0
 
             # TODO: all the following funcs should happen in batches
             for i in range(self.docCount):
-                tokens = self.documentTokens[i]
+                tokens = self.documentDictionary[i].tokens
                 for token in tokens:
-                    try:
-                        DF[token].add(i)
-                    except:
-                        DF[token] = {i}
+                    if token not in self._docFreq:
+                        self._docFreq[token] = set()
+                    self._docFreq[token].add(i)
 
-            vocabSize = len(DF)
-
-            self.totalVocab = [x for x in DF]
+            self._totalVocab = [x for x in self._docFreq]
+            self._vocabSize = len(self._totalVocab)
 
             # calculate tf.idf
             tfidf = {}
             docNum = 0
 
             for i in range(self.docCount):
-                tokens = self.documentTokens[i]
+                tokens = self.documentDictionary[i].tokens
                 counter = Counter(tokens)
                 wordCount = len(tokens)
 
@@ -265,41 +274,32 @@ class VectorSpaceModel:
                     tf = counter[token] / wordCount
                     df = self._documentFreq(token)
                     idf = np.log((self.docCount + 1) / (df + 1))
-
                     tfidf[docNum, token] = tf * idf
 
+                self.documentDictionary[i].docVector = np.zeros(self._vocabSize)
                 docNum += 1
 
             # vectorize
-            self.docVectors = np.zeros((self.docCount, vocabSize))
             for i in tfidf:
-                try:
-                    index = self.totalVocab.index(i[1])
-                    self.docVectors[i[0]][index] = tfidf[i]
-                except:
-                    pass
+                index = self._totalVocab.index(i[1])
+                self.documentDictionary[i[0]].docVector[index] = tfidf[i]
 
             # TODO: dump multiple docVectors into diff files
-            dump(self.docVectors, "./obj/vectorSpace.pk")
-            dump(self.totalVocab, "./obj/vocab.pk")
-            dump(self.docCount, "./obj/docCount.pk")
-            dump(self.ogDocuments, "./obj/ogDocs.pk")
+            dump(self.documentDictionary, "./obj/docDict.pk")
+            dump(self._totalVocab, "./obj/vocab.pk")
+            dump(self._docFreq, "./obj/docFreq.pk")
 
     def _vectorize(self, tokens):
         tokens = tokens.split()
-        query = np.zeros((len(self.totalVocab)))
+        query = np.zeros(self._vocabSize)
         counter = Counter(tokens)
         wordCount = len(tokens)
         for token in np.unique(tokens):
             tf = counter[token] / wordCount
             df = self._documentFreq(token)
             idf = np.log((self.docCount + 1) / (df + 1))
-            try:
-                index = self.totalVocab.index(token)
-                query[index] = tf * idf
-            except:
-                pass
-
+            index = self._totalVocab.index(token)
+            query[index] = tf * idf
         return query
 
     def _cosineSim(self, a, b):
@@ -322,8 +322,12 @@ class VectorSpaceModel:
         queryVector = self._vectorize(tokens)
 
         # TODO: search in multiple docVector files
-        for document in self.docVectors:
-            docCosines.append(self._cosineSim(queryVector, document))
+        for document in self.documentDictionary:
+            docCosines.append(
+                self._cosineSim(
+                    queryVector, self.documentDictionary[document].docVector
+                )
+            )
 
         resultIDs = np.array(docCosines).argsort()[-top:][::-1]
         resultCosines = []
