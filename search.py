@@ -11,7 +11,7 @@ if __name__ == "__main__":
 
     query = input("Enter search query: ")
     startTime = time.time()
-    results, suggestions = idxObj.search(query)
+    results, rocchioRes, suggestions = idxObj.search(query)
     endTime = time.time()
 
     documentIndex = load("./obj/docIdx.pk")
@@ -26,8 +26,16 @@ if __name__ == "__main__":
     )
 
     print("Results:")
+    # print(results)
     for docID in results:
         print("DocID:", docID, "Score:", results[docID])
+        print(documentIndex[docID])
+        print("----------------------")
+
+    print("Rocchio Modification")
+    # print(rocchioRes)
+    for docID in rocchioRes:
+        print("DocID:", docID, "Score:", rocchioRes[docID])
         print(documentIndex[docID])
         print("----------------------")
 

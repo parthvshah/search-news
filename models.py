@@ -184,8 +184,49 @@ class InvertedIndexTfIdf:
 
         return query
 
-    def _rankVectorSpace(self, documentDict, query):
-        queryVector = self._vectorize(query)
+    def rocchio(self, query, rankedDict, rel=5, nonrel=5, a=1, b=0.75, g=0.15):
+        # map terms in rel/non-rel docs to total tf-scores
+        relDocs = {}
+        nonRelDocs = {}
+
+        for docID in islice(rankedDict, rel):
+            snippet = self.documentIndex[docID]
+            processed = preprocess(snippet).split()
+            for token in processed:
+                if token not in relDocs:
+                    relDocs[token] = 0
+                relDocs[token] += self.index[token][docID]
+
+        for docID in islice(rankedDict, rel, nonrel):
+            snippet = self.documentIndex[docID]
+            processed = preprocess(snippet).split()
+            for token in processed:
+                if token not in nonRelDocs:
+                    nonRelDocs[token] = 0
+                nonRelDocs[token] += self.index[token][docID]
+
+        newQueryVec = self._vectorize(query) * a
+
+        for token in relDocs:
+            df = len(self.index[token])
+            idf = np.log((len(self.documentIndex) + 1) / (df + 1))
+            newQueryVec[self.totalVocab.index(token)] += (
+                b * idf * (relDocs[token] / rel)
+            )
+
+        for token in nonRelDocs:
+            df = len(self.index[token])
+            idf = np.log((len(self.documentIndex) + 1) / (df + 1))
+            newQueryVec[self.totalVocab.index(token)] -= (
+                g * idf * (nonRelDocs[token] / nonrel)
+            )
+
+        return newQueryVec
+
+    def _rankVectorSpace(self, documentDict, query, vectorizeQuery=True):
+        queryVector = query
+        if vectorizeQuery:
+            queryVector = self._vectorize(query)
         docScores = {}
         for docID in documentDict:
             docVector = self._vectorize(self.documentIndex[docID])
@@ -256,15 +297,23 @@ class InvertedIndexTfIdf:
             )
         }
 
-        vectorSpaceRanked = self._rankVectorSpace(
-            dict(islice(rankedDict.items(), 2 * top)), query
-        )
+        topDocs = dict(islice(rankedDict.items(), 2 * top))
+        topDocsFb = dict(islice(rankedDict.items(), 3 * top))
+        feedbackQuery = self.rocchio(query, topDocs)
+
+        vectorSpaceRanked = self._rankVectorSpace(topDocs, query)
+
+        vectorSpaceRocchio = self._rankVectorSpace(topDocsFb, feedbackQuery, False)
 
         # find suggestions from query log
         suggestions = self._suggestions(query, 3)
 
         # returns a dict with k: v as docID: score and suggestions
-        return (dict(islice(vectorSpaceRanked.items(), top)), suggestions)
+        return (
+            dict(islice(vectorSpaceRanked.items(), top)),
+            dict(islice(vectorSpaceRocchio.items(), top)),
+            suggestions,
+        )
 
 
 class DocumentBlueprint:
