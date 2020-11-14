@@ -8,7 +8,14 @@ from collections import Counter, defaultdict
 from itertools import islice
 from math import log
 from tqdm import tqdm
-from utils import dump, load, retrieveSnippetsFromFile, preprocess, spellchecker
+from utils import (
+    dump,
+    load,
+    retrieveSnippetsFromFile,
+    preprocess,
+    spellchecker,
+    levenshteinDistance,
+)
 
 nlp = sp.load("en_core_web_sm")
 
@@ -101,17 +108,21 @@ class InvertedIndexTfIdf:
     Dictionary implementation of inverted index with TFIDF similarity measure.
     """
 
-    def __init__(self, dataDirectory):
+    def __init__(self, dataDirectory, queryLog=[]):
         """
         `dataDirectory` is path to directory of corpus.
+        `log` is an optional param to populate the log before querying
         """
         self.dataDir = dataDirectory
-        # index is the inverted index
-        # each term maps to posting list consisting of (docId, term_frequency) pairs
+        # index is the inverted index - each term maps to posting list consisting of (docId, term_frequency) pairs
         self.index = {}
         # documentIndex contains the mapping of docIDs to docNames.
         self.documentIndex = {}
+        # contains all the tokens of the corpus, used to create a vector
         self.totalVocab = []
+        # contains n most recent queries for suggestions
+        self.queryLog = queryLog
+
         self._constructIndex()
 
     def _constructIndex(self):
@@ -122,6 +133,7 @@ class InvertedIndexTfIdf:
             self.index = load("./obj/invIdxTfIdf.pk")
             self.totalVocab = load("./obj/vocab.pk")
             self.documentIndex = load("./obj/docIdx.pk")
+            self.queryLog = load("./obj/log.pk")
 
         except (OSError, IOError):
             documents = glob.glob(self.dataDir + "/*.csv")
@@ -147,6 +159,7 @@ class InvertedIndexTfIdf:
             dump(self.index, "./obj/invIdxTfIdf.pk")
             dump(self.totalVocab, "./obj/vocab.pk")
             dump(self.documentIndex, "./obj/docIdx.pk")
+            dump(self.queryLog[-100:], "./obj/log.pk")
 
     def _cosineSim(self, a, b):
         return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
@@ -187,17 +200,36 @@ class InvertedIndexTfIdf:
         }
         return result
 
+    def _log(self, query):
+        """
+        Saves only the last n (100) queries
+        """
+        if(query not in self.queryLog):
+            self.queryLog.append(query)
+            dump(self.queryLog[-100:], "./obj/log.pk")
+
+    def _suggestions(self, query, top=10):
+        distances = []
+        for ql in self.queryLog[::-1]:
+            dist = levenshteinDistance(ql, query)
+            if dist != 0:
+                distances.append((ql, dist))
+
+        suggestions = sorted(distances, key=lambda x: x[1])
+        return suggestions[:top]
+
     def search(self, query, top=10):
         """
         Search for terms in `query`
         Currently scores documents based on tf(t,q)*tfidf(t,d) similarity
         """
         # TODO: Use further heuristics to reduce query search time such as Query Parser, Impact Ordered postings, Relevance and Authority
-
         correctedQuery = spellchecker(query)
         if correctedQuery != query:
             print("Did you mean:", correctedQuery)
             query = correctedQuery
+
+        self._log(query)
 
         scoreIndex = defaultdict(int)
         processed = preprocess(query).split()
@@ -223,13 +255,16 @@ class InvertedIndexTfIdf:
                 scoreIndex.items(), key=lambda item: item[1], reverse=True
             )
         }
-        # dict
+
         vectorSpaceRanked = self._rankVectorSpace(
             dict(islice(rankedDict.items(), 2 * top)), query
         )
 
-        # returns a dict with k: v as docID: score
-        return dict(islice(vectorSpaceRanked.items(), top))
+        # find suggestions from query log
+        suggestions = self._suggestions(query, 3)
+
+        # returns a dict with k: v as docID: score and suggestions
+        return (dict(islice(vectorSpaceRanked.items(), top)), suggestions)
 
 
 class DocumentBlueprint:

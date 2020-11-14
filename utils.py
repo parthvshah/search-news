@@ -10,8 +10,29 @@ from spellchecker import SpellChecker
 spell = SpellChecker()
 nlp = sp.load("en_core_web_sm")
 
+def levenshteinDistance(s1, s2):
+    """
+    Calculates the Levenshtein Distance between two strings using DP
+    """
+    if len(s1) > len(s2):
+        s1, s2 = s2, s1
+
+    distances = range(len(s1) + 1)
+    for i2, c2 in enumerate(s2):
+        distances_ = [i2+1]
+        for i1, c1 in enumerate(s1):
+            if c1 == c2:
+                distances_.append(distances[i1])
+            else:
+                distances_.append(1 + min((distances[i1], distances[i1 + 1], distances_[-1])))
+        distances = distances_
+    return distances[-1]
+
 
 def spellchecker(query):
+    """
+    Returns the most probable corrected string
+    """
     words = query.split()
     correction = []
     for word in words:
@@ -63,12 +84,27 @@ def retrieveSnippetsFromFile(filePath):
 
 
 def dump(obj, filename):
+    """
+    Pickle wrapper to dump
+    """
     with open(filename, "wb") as handle:
         pickle.dump(obj, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 def load(filename):
+    """
+    Pickle wrapper to load
+    """
     with open(filename, "rb") as handle:
         obj = pickle.load(handle)
 
     return obj
+
+def inspect(filename):
+    """
+    Pickle wrapper to inspect stored values
+    """
+    with open(filename, "rb") as handle:
+        obj = pickle.load(handle)
+
+    print(obj)
