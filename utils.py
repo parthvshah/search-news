@@ -10,6 +10,7 @@ from spellchecker import SpellChecker
 spell = SpellChecker()
 nlp = sp.load("en_core_web_sm")
 
+
 def levenshteinDistance(s1, s2):
     """
     Calculates the Levenshtein Distance between two strings using DP
@@ -19,12 +20,14 @@ def levenshteinDistance(s1, s2):
 
     distances = range(len(s1) + 1)
     for i2, c2 in enumerate(s2):
-        distances_ = [i2+1]
+        distances_ = [i2 + 1]
         for i1, c1 in enumerate(s1):
             if c1 == c2:
                 distances_.append(distances[i1])
             else:
-                distances_.append(1 + min((distances[i1], distances[i1 + 1], distances_[-1])))
+                distances_.append(
+                    1 + min((distances[i1], distances[i1 + 1], distances_[-1]))
+                )
         distances = distances_
     return distances[-1]
 
@@ -99,6 +102,7 @@ def load(filename):
         obj = pickle.load(handle)
 
     return obj
+
 
 def inspect(filename):
     """

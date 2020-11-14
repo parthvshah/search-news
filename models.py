@@ -204,7 +204,7 @@ class InvertedIndexTfIdf:
         """
         Saves only the last n (100) queries
         """
-        if(query not in self.queryLog):
+        if query not in self.queryLog:
             self.queryLog.append(query)
             dump(self.queryLog[-100:], "./obj/log.pk")
 
