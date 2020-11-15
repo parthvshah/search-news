@@ -185,7 +185,7 @@ class InvertedIndexTfIdf:
         # TODO: Use further heuristics to reduce query search time such as Query Parser, Impact Ordered postings, Relevance and Authority
         correctedQuery = spellchecker(query)
         if correctedQuery != query:
-            print("Did you mean:", correctedQuery)
+            # print("Did you mean:", correctedQuery)
             query = correctedQuery
 
         self._log(query)
@@ -228,6 +228,7 @@ class InvertedIndexTfIdf:
 
         # returns a dict with k: v as docID: score and suggestions
         return (
+            correctedQuery,
             dict(islice(vectorSpaceRanked.items(), top)),
             dict(islice(vectorSpaceRocchio.items(), top)),
             suggestions,
