@@ -118,8 +118,10 @@ class InvertedIndexTfIdf:
         self.index = {}
         # documentIndex contains the mapping of docIDs to docNames.
         self.documentIndex = {}
+        self.noOfDocs = 0
         # contains all the tokens of the corpus, used to create a vector
         self.totalVocab = []
+        self.noOfTokens = 0
         # contains n most recent queries for suggestions
         self.queryLog = queryLog
 
@@ -133,7 +135,8 @@ class InvertedIndexTfIdf:
             self.index = load("./obj/invIdxTfIdf.pk")
             self.totalVocab = load("./obj/vocab.pk")
             self.documentIndex = load("./obj/docIdx.pk")
-            self.queryLog = load("./obj/log.pk")
+            self.noOfDocs = len(self.documentIndex)
+            self.noOfTokens = len(self.totalVocab)
 
         except (OSError, IOError):
             documents = glob.glob(self.dataDir + "/*.csv")
@@ -146,7 +149,6 @@ class InvertedIndexTfIdf:
                     docCount += 1
                     self.documentIndex[docCount] = snippet
                     processed = preprocess(snippet).split()
-                    self.totalVocab.extend(processed)
                     tokenCounts = Counter(processed)
                     for token in tokenCounts:
                         tf = round(1 + log(tokenCounts[token], 10), 3)
@@ -154,6 +156,10 @@ class InvertedIndexTfIdf:
                             self.index[token][docCount] = tf
                         else:
                             self.index[token] = {docCount: tf}
+
+            self.totalVocab = list(self.index.keys())
+            self.noOfDocs = len(self.documentIndex)
+            self.noOfTokens = len(self.totalVocab)
 
             print("Indexed", len(self.index), "tokens")
             dump(self.index, "./obj/invIdxTfIdf.pk")
@@ -168,12 +174,8 @@ class InvertedIndexTfIdf:
         return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
 
     def _vectorize(self, snippet):
-        """
-        Converts `snippet` to vector form based on tf-idf scores.
-        """
-        tokens = preprocess(snippet)
-        tokens = tokens.split()
-        query = np.zeros(len(self.totalVocab))
+        tokens = preprocess(snippet).split()
+        query = np.zeros(self.noOfTokens + 1)
         counter = Counter(tokens)
         wordCount = len(tokens)
 
@@ -184,13 +186,13 @@ class InvertedIndexTfIdf:
                 sys.exit()
 
             df = len(self.index[token])
-            idf = np.log((len(self.documentIndex) + 1) / (df + 1))
+            idf = np.log((self.noOfDocs + 1) / (df + 1))
             index = self.totalVocab.index(token)
             query[index] = tf * idf
 
         return query
 
-    def _rocchio(self, query, rankedDict, rel=5, nonrel=5, a=1, b=0.75, g=0.15):
+    def _rocchio(self, query, rankedList, rel=5, nonrel=5, a=1, b=0.75, g=0.15):
         """
         Extend `query` based on `rel` and `nonrel` documents from `rankedDict`, using Rocchio Algorithm.
         `a`: alpha; `b`: beta; `g`: gamma
@@ -200,7 +202,8 @@ class InvertedIndexTfIdf:
         relDocs = {}
         nonRelDocs = {}
 
-        for docID in islice(rankedDict, rel):
+        for i in range(rel):
+            docID = rankedList[i]
             snippet = self.documentIndex[docID]
             processed = preprocess(snippet).split()
             for token in processed:
@@ -208,7 +211,8 @@ class InvertedIndexTfIdf:
                     relDocs[token] = 0
                 relDocs[token] += self.index[token][docID]
 
-        for docID in islice(rankedDict, rel, nonrel):
+        for i in range(rel, nonrel):
+            docID = rankedList[i]
             snippet = self.documentIndex[docID]
             processed = preprocess(snippet).split()
             for token in processed:
@@ -220,14 +224,14 @@ class InvertedIndexTfIdf:
 
         for token in relDocs:
             df = len(self.index[token])
-            idf = np.log((len(self.documentIndex) + 1) / (df + 1))
+            idf = np.log((self.noOfDocs + 1) / (df + 1))
             newQueryVec[self.totalVocab.index(token)] += (
                 b * idf * (relDocs[token] / rel)
             )
 
         for token in nonRelDocs:
             df = len(self.index[token])
-            idf = np.log((len(self.documentIndex) + 1) / (df + 1))
+            idf = np.log((self.noOfDocs + 1) / (df + 1))
             newQueryVec[self.totalVocab.index(token)] -= (
                 g * idf * (nonRelDocs[token] / nonrel)
             )
@@ -242,6 +246,7 @@ class InvertedIndexTfIdf:
         queryVector = query
         if vectorizeQuery:
             queryVector = self._vectorize(query)
+
         docScores = {}
         for docID in documentDict:
             docVector = self._vectorize(self.documentIndex[docID])
@@ -293,16 +298,18 @@ class InvertedIndexTfIdf:
         scoreIndex = defaultdict(int)
         processed = preprocess(query).split()
         queryTermCounts = Counter(processed)
-        noOfDocuments = len(self.documentIndex)
+
         for term in queryTermCounts:
             if term in self.index:
-                idf = round(log(noOfDocuments / len(self.index[term])), 3)
+                idf = round(log((self.noOfDocs + 1) / len(self.index[term])), 3)
                 postingList = {
                     k: v
                     for k, v in sorted(
                         self.index[term].items(), key=lambda item: item[1], reverse=True
                     )
                 }
+                # Can implement early-stopping by checking if TfIdf goes below a certain threshold
+                # if idf * postingList[docIndex] > threshold:
                 for docIndex in postingList:
                     scoreIndex[docIndex] += round(
                         queryTermCounts[term] * (idf * postingList[docIndex]), 3
@@ -315,13 +322,13 @@ class InvertedIndexTfIdf:
             )
         }
 
-        topDocs = dict(islice(rankedDict.items(), 2 * top))
-        topDocsFb = dict(islice(rankedDict.items(), 3 * top))
-        feedbackQuery = self._rocchio(query, topDocs)
+        docList = list(rankedDict.keys())
+        feedbackQuery = self._rocchio(query, docList[: 2 * top + 1])
 
-        vectorSpaceRanked = self._rankVectorSpace(topDocs, query)
-
-        vectorSpaceRocchio = self._rankVectorSpace(topDocsFb, feedbackQuery, False)
+        vectorSpaceRanked = self._rankVectorSpace(docList[: 2 * top + 1], query)
+        vectorSpaceRocchio = self._rankVectorSpace(
+            docList[: 3 * top + 1], feedbackQuery, False
+        )
 
         # find suggestions from query log
         suggestions = self._suggestions(query, 3)
