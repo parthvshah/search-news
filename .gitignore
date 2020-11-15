@@ -1,5 +1,6 @@
 archive/
 obj/
+test/
 .vscode/
 .DS_Store
 __pycache__/
