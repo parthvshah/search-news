@@ -34,7 +34,7 @@
 
           {% if query %}
           <span class="desc">Searched 94858 documents for <b>{{query}}</b> in {{timeTaken}} seconds</span>
-          <span class="desc">Suggestions:</span>
+          <span class="desc">Suggestions</span>
           <table>
             <tr>
               {% for key in suggestions %}
@@ -42,9 +42,20 @@
               {% endfor %}
             </tr>
           </table>
-
+          <span class="desc">Sort By</span>
+          <select name="sortBy" id="sortBy" onchange="getSelected()">
+            <option value="1" id = "1"> Added First</option>
+            <option value="2" id = "2">Added Last</option>
+          </select>
+        <!-- </form> -->
+          <!-- <select name = "sort">
+            {% for sort in sortBy %}
+                <option value="{{ sort }}">{{ sort }}</option>
+            {% endfor %}
+            <input type="submit">
+          </form> -->
+          </select>
           {% endif %}
-
         </div>
 
         {% for key in results %}
@@ -67,6 +78,20 @@
         <input type="submit" style="position: absolute; left: -9999px" />
     </form>
   </div>
+  <script>
+    function getSelected(){
+      var e = document.getElementById('sortBy').value;
+      if(e == 1){
+        // send to jinja
+      }
+      else{
+        // send to jinja
+      }
+
+    }
+   
+
+  </script>
   <script src="static/js/extention/choices.js"></script>
 
 </body><!-- This templates was made by Colorlib (https://colorlib.com) -->
