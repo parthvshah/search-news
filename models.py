@@ -10,11 +10,11 @@ from math import log
 from tqdm import tqdm
 from utils import (
     dump,
-    load,
-    retrieveSnippetsFromFile,
-    preprocess,
-    spellchecker,
     levenshteinDistance,
+    load,
+    preprocess,
+    retrieveSnippetsFromFile,
+    spellchecker,
 )
 
 nlp = sp.load("en_core_web_sm")
@@ -40,9 +40,9 @@ class InvertedIndexDict:
         # documentIndex contains the mapping of docIDs to docNames.
         self.documentIndex = {}
 
-        self.constructIndex()
+        self._constructIndex()
 
-    def constructIndex(self):
+    def _constructIndex(self):
         """
         Construct index from documents.
         """
@@ -162,9 +162,15 @@ class InvertedIndexTfIdf:
             dump(self.queryLog[-100:], "./obj/log.pk")
 
     def _cosineSim(self, a, b):
+        """
+        Finds similarity between vectors `a` and `b` using cosine measure
+        """
         return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
 
     def _vectorize(self, snippet):
+        """
+        Converts `snippet` to vector form based on tf-idf scores.
+        """
         tokens = preprocess(snippet)
         tokens = tokens.split()
         query = np.zeros(len(self.totalVocab))
@@ -184,7 +190,12 @@ class InvertedIndexTfIdf:
 
         return query
 
-    def rocchio(self, query, rankedDict, rel=5, nonrel=5, a=1, b=0.75, g=0.15):
+    def _rocchio(self, query, rankedDict, rel=5, nonrel=5, a=1, b=0.75, g=0.15):
+        """
+        Extend `query` based on `rel` and `nonrel` documents from `rankedDict`, using Rocchio Algorithm.
+        `a`: alpha; `b`: beta; `g`: gamma
+        Returns modified query.
+        """
         # map terms in rel/non-rel docs to total tf-scores
         relDocs = {}
         nonRelDocs = {}
@@ -224,6 +235,10 @@ class InvertedIndexTfIdf:
         return newQueryVec
 
     def _rankVectorSpace(self, documentDict, query, vectorizeQuery=True):
+        """
+        Creates ranking of documents in `documentDict` against `query`.
+        If `vectorizeQuery` is set to False, `query` must be vector form.
+        """
         queryVector = query
         if vectorizeQuery:
             queryVector = self._vectorize(query)
@@ -250,6 +265,9 @@ class InvertedIndexTfIdf:
             dump(self.queryLog[-100:], "./obj/log.pk")
 
     def _suggestions(self, query, top=10):
+        """
+        Returns `top` (max) suggestions against `query'
+        """
         distances = []
         for ql in self.queryLog[::-1]:
             dist = levenshteinDistance(ql, query)
@@ -299,7 +317,7 @@ class InvertedIndexTfIdf:
 
         topDocs = dict(islice(rankedDict.items(), 2 * top))
         topDocsFb = dict(islice(rankedDict.items(), 3 * top))
-        feedbackQuery = self.rocchio(query, topDocs)
+        feedbackQuery = self._rocchio(query, topDocs)
 
         vectorSpaceRanked = self._rankVectorSpace(topDocs, query)
 
@@ -423,6 +441,9 @@ class VectorSpaceModel:
             dump(self._docFreq, "./obj/docFreq.pk")
 
     def _vectorize(self, tokens):
+        """
+        Converts `tokens` to vector form based on tf-idf scores.
+        """
         tokens = tokens.split()
         query = np.zeros(self._vocabSize)
         counter = Counter(tokens)
@@ -436,6 +457,9 @@ class VectorSpaceModel:
         return query
 
     def _cosineSim(self, a, b):
+        """
+        Finds similarity between vectors `a` and `b` using cosine measure
+        """
         return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
 
     def search(self, query, top=10):

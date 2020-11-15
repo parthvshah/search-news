@@ -82,6 +82,9 @@ def preprocess(snippet):
 
 
 def retrieveSnippetsFromFile(filePath):
+    """
+    Retrieve all snippets from `filePath` document.
+    """
     df = pd.read_csv(filePath, index_col=None, header=0)
     return df.Snippet.str.lower().values
 
