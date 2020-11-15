@@ -39,7 +39,9 @@ def sortByValue(documents, value):
         # return sorted(documents, key=lambda x: x[1].split()[0])
         return documents
     if value == 2:
-        documents.sort(key=lambda x: datetime.strptime(x[1].split()[0], "%m/%d/%Y"), reverse=True)
+        documents.sort(
+            key=lambda x: datetime.strptime(x[1].split()[0], "%m/%d/%Y"), reverse=True
+        )
         # return sorted(documents,key=lambda x: x[1].split()[0], reverse=True)
         return documents
 
