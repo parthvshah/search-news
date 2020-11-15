@@ -1,6 +1,6 @@
 from flask import Flask, request, render_template
 
-app = Flask(__name__, static_folder='static')
+app = Flask(__name__, static_folder="static")
 
 import time
 
@@ -14,6 +14,7 @@ idxObj = InvertedIndexTfIdf(
 )
 documentIndex = load("./obj/meta.pk")
 print("Init completed")
+
 
 def searchUsingModel(query):
     global documentIndex
@@ -33,7 +34,7 @@ def searchUsingModel(query):
 def searchHome():
     query = request.args.get("query")
     print("Query:", query)
-    if(query):
+    if query:
         spelling, rocchioRes, suggestions, searchTime = searchUsingModel(query)
         print("Rendering")
         return render_template(
@@ -44,5 +45,5 @@ def searchHome():
             suggestions=suggestions,
             timeTaken=searchTime,
         )
-    else: 
+    else:
         return render_template("index.html")

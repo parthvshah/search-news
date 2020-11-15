@@ -86,9 +86,18 @@ def retrieveFile(filePath):
     df = pd.read_csv(filePath, index_col=None, header=0)
     # URL,MatchDateTime,Station,IAPreviewThumb,Snippet
     for index, row in df.iterrows():
-        result.append([row["URL"], row["MatchDateTime"], row["Station"], row["IAPreviewThumb"], row["Snippet"]])
+        result.append(
+            [
+                row["URL"],
+                row["MatchDateTime"],
+                row["Station"],
+                row["IAPreviewThumb"],
+                row["Snippet"],
+            ]
+        )
 
     return result
+
 
 def dump(obj, filename):
     """

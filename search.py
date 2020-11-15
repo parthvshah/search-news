@@ -10,12 +10,10 @@ if __name__ == "__main__":
     )
     documentIndex = load("./obj/meta.pk")
 
-
     query = input("Enter search query: ")
     startTime = time.time()
     spellCheck, results, rocchioRes, suggestions = idxObj.search(query)
     endTime = time.time()
-
 
     searchTime = round(endTime - startTime, 3)
     print(
