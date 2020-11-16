@@ -102,6 +102,7 @@ class InvertedIndexDict:
         }
         return rankedDict
 
+
 class InvertedIndexTfIdf:
     """
     Dictionary implementation of inverted index with TFIDF similarity measure.
