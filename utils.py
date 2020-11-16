@@ -82,6 +82,9 @@ def preprocess(snippet):
 
 
 def retrieveFile(filePath):
+    """
+    Retrieve all snippets from `filePath` document.
+    """
     result = []
     df = pd.read_csv(filePath, index_col=None, header=0)
     # URL,MatchDateTime,Station,IAPreviewThumb,Snippet

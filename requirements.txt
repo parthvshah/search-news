@@ -1,7 +1,8 @@
-pandas==1.1.4
-rank_bm25==0.2.1
-spacy==2.3.2
-pyspellchecker==0.5.5
-tqdm==4.51.0
 num2words==0.5.10
+tqdm==4.51.0
+spacy==2.3.2
 nltk==3.5
+pyspellchecker==0.5.5
+numpy==1.19.1
+rank_bm25==0.2.1
+pandas==1.1.4

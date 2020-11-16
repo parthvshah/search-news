@@ -30,7 +30,7 @@ if __name__ == "__main__":
         print("DocID:", docID, "Score:", results[docID])
         print(documentIndex[docID])
         print("----------------------")
-
+    print("\n\n")
     print("Rocchio Modification")
     # print(rocchioRes)
     for docID in rocchioRes:
