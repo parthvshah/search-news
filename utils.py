@@ -81,12 +81,25 @@ def preprocess(snippet):
     return cleanSnippet
 
 
-def retrieveSnippetsFromFile(filePath):
+def retrieveFile(filePath):
     """
     Retrieve all snippets from `filePath` document.
     """
+    result = []
     df = pd.read_csv(filePath, index_col=None, header=0)
-    return df.Snippet.str.lower().values
+    # URL,MatchDateTime,Station,IAPreviewThumb,Snippet
+    for index, row in df.iterrows():
+        result.append(
+            [
+                row["URL"],
+                row["MatchDateTime"],
+                row["Station"],
+                row["IAPreviewThumb"],
+                row["Snippet"],
+            ]
+        )
+
+    return result
 
 
 def dump(obj, filename):

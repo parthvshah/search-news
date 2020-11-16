@@ -1,7 +1,5 @@
 import glob
 import numpy as np
-import pandas as pd
-import spacy as sp
 import sys
 
 from collections import Counter, defaultdict
@@ -12,10 +10,12 @@ from utils import (
     dump,
     levenshteinDistance,
     load,
+    retrieveFile,
     preprocess,
     retrieveSnippetsFromFile,
     spellchecker,
 )
+
 
 nlp = sp.load("en_core_web_sm")
 
@@ -102,7 +102,6 @@ class InvertedIndexDict:
         }
         return rankedDict
 
-
 class InvertedIndexTfIdf:
     """
     Dictionary implementation of inverted index with TFIDF similarity measure.
@@ -118,7 +117,10 @@ class InvertedIndexTfIdf:
         self.index = {}
         # documentIndex contains the mapping of docIDs to docNames.
         self.documentIndex = {}
+        # document and all its metadata
+        self.documentMetadata = {}
         self.noOfDocs = 0
+
         # contains all the tokens of the corpus, used to create a vector
         self.totalVocab = []
         self.noOfTokens = 0
@@ -135,6 +137,8 @@ class InvertedIndexTfIdf:
             self.index = load("./obj/invIdxTfIdf.pk")
             self.totalVocab = load("./obj/vocab.pk")
             self.documentIndex = load("./obj/docIdx.pk")
+            self.documentMetadata = load("./obj/meta.pk")
+            self.queryLog = load("./obj/log.pk")
             self.noOfDocs = len(self.documentIndex)
             self.noOfTokens = len(self.totalVocab)
 
@@ -144,11 +148,15 @@ class InvertedIndexTfIdf:
             print("Constructing Inverted Index")
             for documentID in tqdm(range(len(documents))):
                 document = documents[documentID]
-                snippets = retrieveSnippetsFromFile(document)
-                for snippet in snippets:
+                values = retrieveFile(document)
+                for value in values:
                     docCount += 1
-                    self.documentIndex[docCount] = snippet
-                    processed = preprocess(snippet).split()
+
+                    self.documentIndex[docCount] = value[-1]
+                    self.documentMetadata[docCount] = value
+                    processed = preprocess(value[-1]).split()
+                    self.totalVocab.extend(processed)
+
                     tokenCounts = Counter(processed)
                     for token in tokenCounts:
                         tf = round(1 + log(tokenCounts[token], 10), 3)
@@ -165,6 +173,7 @@ class InvertedIndexTfIdf:
             dump(self.index, "./obj/invIdxTfIdf.pk")
             dump(self.totalVocab, "./obj/vocab.pk")
             dump(self.documentIndex, "./obj/docIdx.pk")
+            dump(self.documentMetadata, "./obj/meta.pk")
             dump(self.queryLog[-100:], "./obj/log.pk")
 
     def _cosineSim(self, a, b):
@@ -290,7 +299,7 @@ class InvertedIndexTfIdf:
         # TODO: Use further heuristics to reduce query search time such as Query Parser, Impact Ordered postings, Relevance and Authority
         correctedQuery = spellchecker(query)
         if correctedQuery != query:
-            print("Did you mean:", correctedQuery)
+            # print("Did you mean:", correctedQuery)
             query = correctedQuery
 
         self._log(query)
@@ -335,168 +344,8 @@ class InvertedIndexTfIdf:
 
         # returns a dict with k: v as docID: score and suggestions
         return (
+            correctedQuery,
             dict(islice(vectorSpaceRanked.items(), top)),
             dict(islice(vectorSpaceRocchio.items(), top)),
             suggestions,
         )
-
-
-class DocumentBlueprint:
-    """
-    A simple way to store documents uniformly
-    """
-
-    def __init__(self, docID):
-        self.docID = docID
-        self.snippet = ""
-        self.tokens = []
-        self.docVector = []
-
-
-class VectorSpaceModel:
-    """
-    Vector Space Model to search with TFIDF similarity measure.
-    """
-
-    def __init__(self, dataDirectory):
-        """
-        `dataDirectory` is path to directory of corpus.
-        """
-        self.dataDir = dataDirectory
-        # A dictionary of all documents as DocumentBlueprint objects
-        self.documentDictionary = {}
-
-        # document count; each snippet is counted as a new document
-        self.docCount = 0
-        self._totalVocab = []
-        self._vocabSize = 0
-        self._docFreq = {}
-        self._constructIndex()
-
-    def _documentFreq(self, word):
-        """
-        Return frequency of documents that contain `word`
-        """
-        if word not in self._docFreq:
-            return 0
-        return len(self._docFreq[word])
-
-    def _constructIndex(self):
-        """
-        Construct index from documents.
-        """
-        try:
-            self.documentDictionary = load("./obj/docDict.pk")
-            self.docCount = len(self.documentDictionary)
-            self._totalVocab = load("./obj/vocab.pk")
-            self._vocabSize = len(self._totalVocab)
-            self._docFreq = load("./obj/docFreq.pk")
-
-        except (OSError, IOError):
-            documents = glob.glob(self.dataDir + "/*.csv")
-
-            # load, pre-process and count
-            for docID in tqdm(range(len(documents))):
-                document = documents[docID]
-                snippets = retrieveSnippetsFromFile(document)
-
-                for snippet in snippets:
-                    # TODO: Lemmatization?
-                    newDoc = DocumentBlueprint(docID)
-                    newDoc.snippet = snippet
-                    newDoc.tokens = preprocess(snippet).split()
-                    self.documentDictionary[self.docCount] = newDoc
-                    self.docCount += 1
-
-            # TODO: all the following funcs should happen in batches
-            for i in range(self.docCount):
-                tokens = self.documentDictionary[i].tokens
-                for token in tokens:
-                    if token not in self._docFreq:
-                        self._docFreq[token] = set()
-                    self._docFreq[token].add(i)
-
-            self._totalVocab = [x for x in self._docFreq]
-            self._vocabSize = len(self._totalVocab)
-
-            # calculate tf.idf
-            tfidf = {}
-            docNum = 0
-
-            for i in range(self.docCount):
-                tokens = self.documentDictionary[i].tokens
-                counter = Counter(tokens)
-                wordCount = len(tokens)
-
-                for token in np.unique(tokens):
-                    tf = counter[token] / wordCount
-                    df = self._documentFreq(token)
-                    idf = np.log((self.docCount + 1) / (df + 1))
-                    tfidf[docNum, token] = tf * idf
-
-                self.documentDictionary[i].docVector = np.zeros(self._vocabSize)
-                docNum += 1
-
-            # vectorize
-            for i in tfidf:
-                index = self._totalVocab.index(i[1])
-                self.documentDictionary[i[0]].docVector[index] = tfidf[i]
-
-            # TODO: dump multiple docVectors into diff files
-            dump(self.documentDictionary, "./obj/docDict.pk")
-            dump(self._totalVocab, "./obj/vocab.pk")
-            dump(self._docFreq, "./obj/docFreq.pk")
-
-    def _vectorize(self, tokens):
-        """
-        Converts `tokens` to vector form based on tf-idf scores.
-        """
-        tokens = tokens.split()
-        query = np.zeros(self._vocabSize)
-        counter = Counter(tokens)
-        wordCount = len(tokens)
-        for token in np.unique(tokens):
-            tf = counter[token] / wordCount
-            df = self._documentFreq(token)
-            idf = np.log((self.docCount + 1) / (df + 1))
-            index = self._totalVocab.index(token)
-            query[index] = tf * idf
-        return query
-
-    def _cosineSim(self, a, b):
-        """
-        Finds similarity between vectors `a` and `b` using cosine measure
-        """
-        return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
-
-    def search(self, query, top=10):
-        """
-        Search for terms in `query`
-        """
-
-        # TODO: Use further heuristics to reduce query search time such as Query Parser, Impact Ordered postings, Relevance and Authority
-        correctedQuery = spellchecker(query)
-        if correctedQuery != query:
-            print("Did you mean:", correctedQuery)
-            query = correctedQuery
-
-        print("Query:", query)
-        tokens = preprocess(query)
-        docCosines = []
-        queryVector = self._vectorize(tokens)
-
-        # TODO: search in multiple docVector files
-        for document in self.documentDictionary:
-            docCosines.append(
-                self._cosineSim(
-                    queryVector, self.documentDictionary[document].docVector
-                )
-            )
-
-        resultIDs = np.array(docCosines).argsort()[-top:][::-1]
-        resultCosines = []
-        for Id in resultIDs:
-            resultCosines.append(docCosines[Id])
-
-        # returns array of (docIDs, cosineScore)
-        return zip(resultIDs, resultCosines)

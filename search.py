@@ -1,20 +1,19 @@
 import time
 
 from utils import load
-from models import InvertedIndexTfIdf, VectorSpaceModel
+from models import InvertedIndexTfIdf
 
 if __name__ == "__main__":
     idxObj = InvertedIndexTfIdf(
         r"./archive/TelevisionNews",
-        ["meat and dairy", "clouds", "Donald Trump", "women", "clouds", "clouds over"],
+        ["meat and dairy", "clouds", "Donald Trump", "women", "clouds over"],
     )
+    documentIndex = load("./obj/meta.pk")
 
     query = input("Enter search query: ")
     startTime = time.time()
-    results, rocchioRes, suggestions = idxObj.search(query)
+    spellCheck, results, rocchioRes, suggestions = idxObj.search(query)
     endTime = time.time()
-
-    documentIndex = load("./obj/docIdx.pk")
 
     searchTime = round(endTime - startTime, 3)
     print(
