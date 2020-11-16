@@ -12,95 +12,8 @@ from utils import (
     load,
     retrieveFile,
     preprocess,
-    retrieveSnippetsFromFile,
     spellchecker,
 )
-
-
-nlp = sp.load("en_core_web_sm")
-
-
-class InvertedIndexDict:
-    """
-    Dictionary implementation of inverted index.
-    """
-
-    def __init__(self, dataDirectory):
-        """
-        `dataDirectory` is path to directory of corpus.
-        """
-
-        self.dataDir = dataDirectory
-
-        # index is the inverted index
-        # each term in the inverted index maps to a posting list
-        # posting list is positional, i.e, it is a dictionary that maps docID to set of token positions
-        self.index = {}
-
-        # documentIndex contains the mapping of docIDs to docNames.
-        self.documentIndex = {}
-
-        self._constructIndex()
-
-    def _constructIndex(self):
-        """
-        Construct index from documents.
-        """
-
-        try:
-            self.index = load("./obj/invIdxDict.pk")
-            self.documentIndex = load("./obj/docIdx.pk")
-
-        except (OSError, IOError):
-            documents = glob.glob(self.dataDir + "/*.csv")
-            docCount = 0
-            print("Constructing Inverted Index")
-            for documentID in tqdm(range(len(documents))):
-                document = documents[documentID]
-                snippets = retrieveSnippetsFromFile(document)
-                for snippet in snippets:
-                    self.documentIndex[docCount] = snippet
-                    docCount += 1
-                    spSnip = nlp(snippet)
-                    for token in spSnip:
-                        tokLemma = token.lemma_
-                        if not tokLemma in self.index:
-                            self.index[tokLemma] = {}
-                        if not docCount in self.index[tokLemma]:
-                            self.index[tokLemma][docCount] = set()
-                        self.index[tokLemma][docCount].add(token.i)
-
-            print("Indexed", len(self.index), "tokens")
-            dump(self.index, "./obj/invIdxDict.pk")
-            dump(self.documentIndex, "./obj/docIdx.pk")
-
-    def search(self, query):
-        """
-        Search for terms in `query`
-        Currently scores documents based on number of terms from query that match a document.
-        """
-        # TODO: Correct spelling in query terms
-        # TODO: Stop-word removal in query terms
-        # TODO: Consider positional indexes while searching
-
-        scoreIndex = {}
-        queryTerms = nlp(query)
-
-        for term in queryTerms:
-            termLem = term.lemma_
-            if termLem in self.index:
-                for doc in self.index[termLem]:
-                    if doc not in scoreIndex:
-                        scoreIndex[doc] = 0
-                    scoreIndex[doc] += len(self.index[termLem][doc])
-
-        rankedDict = {
-            k: v
-            for k, v in sorted(
-                scoreIndex.items(), key=lambda item: item[1], reverse=True
-            )
-        }
-        return rankedDict
 
 
 class InvertedIndexTfIdf:
@@ -120,13 +33,13 @@ class InvertedIndexTfIdf:
         self.documentIndex = {}
         # document and all its metadata
         self.documentMetadata = {}
-        self.noOfDocs = 0
-
         # contains all the tokens of the corpus, used to create a vector
         self.totalVocab = []
-        self.noOfTokens = 0
         # contains n most recent queries for suggestions
         self.queryLog = queryLog
+
+        self.noOfDocs = 0
+        self.noOfTokens = 0
 
         self._constructIndex()
 

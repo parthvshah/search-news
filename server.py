@@ -1,10 +1,10 @@
 from flask import Flask, request, render_template
+from numpy.core.fromnumeric import sort
 
 app = Flask(__name__, static_folder="static")
 
 import time
 from datetime import datetime
-from itertools import groupby
 
 from utils import load
 from models import InvertedIndexTfIdf
@@ -56,7 +56,9 @@ def sortByValue(documents, value):
 @app.route("/", methods=["GET"])
 def searchHome():
     query = request.args.get("query")
-    sortBy = int(request.args.get("sortBy"))
+    sortBy = request.args.get("sortBy")
+    if sortBy:
+        sortBy = int(sortBy)
 
     print("Query:", query)
     if query:
